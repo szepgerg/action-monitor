@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Action Monitor</title>
+	<link rel="stylesheet" href="css/bootstrap.min.css">
+	<script type="text/javascript" src="js/knockout.min.js"></script>
+	<script type="text/javascript" src="js/socket.js"></script>
+	<script type="text/javascript" src="js/stomp.js"></script>
+</head>
+<body>
+
+<div class="container-fluid" id="main-frame">
+
+	<div class="row">
+		<div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+			<button type="button" class="btn btn-primary" id="btn-connect"
+					data-bind="click: connectSocket, disable: connected">Start monitoring</button>
+			<button type="button" class="btn btn-primary" id="btn-disconnect"
+					data-bind="click: disconnectSocket, disable: !connected()">Stop monitoring</button>
+
+			<table class="table">
+				<thead>
+					<tr>
+						<th>Timestamp</th>
+						<th>Row ID</th>
+						<th>Operation (Insert/Update)</th>
+					</tr>
+				</thead>
+				<tbody data-bind="foreach: rows">
+					<tr>
+						<td data-bind="text: timestamp"></td>
+						<td data-bind="text: id"></td>
+						<td data-bind="text: operationType"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+</div>
+
+
+<script type="text/javascript">
+	var stompClient = null;
+
+	var ViewModel = function () {
+		var vm = this;
+		vm.rows = ko.observableArray([]);
+		vm.connected = ko.observable(false);
+
+		vm.connectSocket = function () {
+			var socket = new SockJS("/monitor");
+			stompClient = Stomp.over(socket);
+			stompClient.connect({}, function (frame) {
+				console.log("WebSocket connection established.", frame);
+				vm.connected(true);
+				stompClient.subscribe("/topic/action-monitor", function (actionObject) {
+					console.log("DB Action object received.", actionObject);
+					vm.rows.push(JSON.parse(actionObject.body));
+				});
+			});
+		};
+
+		vm.disconnectSocket = function () {
+			if (stompClient !== null) {
+				stompClient.disconnect();
+			}
+			vm.connected(false);
+			console.log("WebSocket connection closed.")
+		}
+	};
+
+	var viewModel = new ViewModel();
+
+	ko.cleanNode(document.getElementById("main-frame"));
+	ko.applyBindings(viewModel, document.getElementById("main-frame"));
+
+</script>
+</body>
+</html>
